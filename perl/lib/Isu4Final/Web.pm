@@ -108,7 +108,7 @@ sub get_log {
     my @logs = $self->redis->lrange($self->log_key($id), 0, -1);
 
     for my $log (@logs) {
-        my $data = $self->decode($log);
+        my $data = $self->json->decode($log);
         my $ad_id = $data->{ad_id};
         $result->{ $ad_id } //= [];
 
