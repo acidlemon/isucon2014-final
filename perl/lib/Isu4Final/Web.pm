@@ -184,6 +184,7 @@ post '/slots/{slot:[^/]+}/ads' => sub {
     move $asset->path, $asset_path or do {
         $c->halt(500);
     };
+    chmod 0644, $asset_path;
 
     $self->redis->rpush($self->slot_key($slot), $id);
     $self->redis->sadd($self->advertiser_key($advertiser_id), $key);
