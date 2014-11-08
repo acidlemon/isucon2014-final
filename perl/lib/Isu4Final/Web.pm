@@ -6,29 +6,9 @@ use utf8;
 use Kossy;
 use Redis::Fast;
 use JSON::XS;
-use Fcntl ':flock';
 use File::Copy;
 use File::Path;
 use File::Basename qw/dirname/;
-
-sub ads_dir {
-    my $self = shift;
-    my $dir = $self->root_dir . '/ads';
-    mkdir $dir unless -d $dir;
-    return $dir;
-}
-
-sub log_dir {
-    my $self = shift;
-    my $dir = $self->root_dir . '/logs';
-    mkdir $dir unless -d $dir;
-    return $dir;
-}
-
-sub log_path {
-    my ( $self, $id ) = @_;
-    return $self->log_dir . '/' . ( split '/', $id )[-1]
-}
 
 sub advertiser_id {
     my ( $self, $c ) = @_;
@@ -75,6 +55,11 @@ sub slot_key {
     return "isu4:slot:$slot";
 }
 
+sub log_key {
+    my ($self, $id) = @_;
+    return "isu4:log:$id";
+}
+
 sub next_ad_id {
     my $self = shift;
     $self->redis->incr('isu4:ad-next');
@@ -115,32 +100,21 @@ sub get_ad {
     return \%ad;
 }
 
-sub decode_user_key {
-    my ( $self, $id ) = @_;
-    my ( $gender, $age ) = split '/', $id;
-    return { gender => $gender eq '0' ? 'female' : $gender eq '1' ? 'male' : undef, age => int($age) };
-}
 
 sub get_log {
     my ( $self, $id ) = @_;
 
     my $result = {};
-    open my $in, '<', $self->log_path($id) or return {};
-    flock $in, LOCK_SH;
-    while ( my $line = <$in> ) {
-        chomp $line;
-        my ( $ad_id, $user, $agent ) = split "\t", $line;
-        $result->{$ad_id} = [] unless $result->{$ad_id};
-        my $user_attr = $self->decode_user_key($user);
-        push @{$result->{$ad_id}}, {
-            ad_id  => $ad_id,
-            user   => $user,
-            agent  => $agent,
-            age    => $user_attr->{age},
-            gender => $user_attr->{gender},
-        };
+    my @logs = $self->redis->lrange($self->log_key($id), 0, -1);
+
+    for my $log (@logs) {
+        my $data = $self->decode($log);
+        my $ad_id = $data->{ad_id};
+        $result->{ $ad_id } //= [];
+
+        push @{ $result->{ $ad_id } }, $data;
     }
-    close $in;
+
     return $result;
 }
 
@@ -319,12 +293,18 @@ get '/slots/{slot:[^/]+}/ads/{id:[0-9]+}/redirect' => sub {
         return $c->res;
     }
 
-    open my $out , '>>', $self->log_path($ad->{advertiser}) or do {
-        $c->halt(500);
+    my $user = $c->req->cookies->{isuad};
+    my ($gender, $age) = split '/', $user;
+
+    my $data = {
+        ad_id  => $ad->{id},
+        user   => $user,
+        agent  => $c->req->env->{'HTTP_USER_AGENT'},
+        age    => int($age),
+        gender => ($gender eq '0' ? 'female' : $gender eq '1' ? 'male' : undef),
     };
-    flock $out, LOCK_EX;
-    print $out join("\t", $ad->{id}, $c->req->cookies->{isuad}, $c->req->env->{'HTTP_USER_AGENT'} . "\n");
-    close $out;
+
+    $self->redis->rpush($self->log_key($ad->{advertiser}), $self->json->encode($data));
 
     $c->redirect($ad->{destination});
 };
@@ -417,10 +397,6 @@ post '/initialize' => sub {
 
     for my $key ( @keys ) {
         $self->redis->del($key);
-    }
-
-    for my $file ( glob($self->log_dir . '/*') ) {
-        unlink $file;
     }
 
     $c->res->content_type('text/plain');
