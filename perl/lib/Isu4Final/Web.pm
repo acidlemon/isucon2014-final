@@ -5,6 +5,7 @@ use warnings;
 use utf8;
 use Kossy;
 use Redis::Fast;
+use JSON::XS;
 use Fcntl ':flock';
 
 sub ads_dir {
@@ -37,6 +38,12 @@ sub redis {
         server => 'srv1:6379'
     );
     return $redis;
+}
+
+my $json;
+sub json {
+    $json ||= JSON::XS->new;
+    return $json;
 }
 
 sub ad_key {
@@ -186,7 +193,7 @@ get '/slots/{slot:[^/]+}/ad' => sub {
     else {
         $c->res->status(404);
         $c->res->content_type('application/json');
-        $c->res->body(JSON->new->encode({ error => 'Not Found' }));
+        $c->res->body($self->json->encode({ error => 'Not Found' }));
         return $c->res;
     }
 };
@@ -196,7 +203,7 @@ get '/slots/{slot:[^/]+}/ads/{id:[0-9]+}' => sub {
 
     my $ad = $self->get_ad($c, $c->args->{slot}, $c->args->{id});
     if ( $ad ) {
-        my $body = JSON->new->encode($ad);
+        my $body = $self->json->encode($ad);
         $c->res->status(200);
         $c->res->header('Content-Length' => length($body));
         $c->res->content_type('application/json');
@@ -205,7 +212,7 @@ get '/slots/{slot:[^/]+}/ads/{id:[0-9]+}' => sub {
     else {
         $c->res->status(404);
         $c->res->content_type('application/json');
-        $c->res->body(JSON->new->encode({ error => 'Not Found' }));
+        $c->res->body($self->json->encode({ error => 'Not Found' }));
     }
     return $c->res;
 };
@@ -261,7 +268,7 @@ get '/slots/{slot:[^/]+}/ads/{id:[0-9]+}/asset' => sub {
     else {
         $c->res->status(404);
         $c->res->content_type('application/json');
-        $c->res->body(JSON->new->encode({ error => 'Not Found' }));
+        $c->res->body($self->json->encode({ error => 'Not Found' }));
         return $c->res;
     }
 };
@@ -277,7 +284,7 @@ post '/slots/{slot:[^/]+}/ads/{id:[0-9]+}/count' => sub {
     unless ( $self->redis->exists($key) ) {
         $c->res->status(404);
         $c->res->content_type('application/json');
-        $c->res->body(JSON->new->encode({ error => 'Not Found' }));
+        $c->res->body($self->json->encode({ error => 'Not Found' }));
         return $c->res;
     }
 
@@ -298,7 +305,7 @@ get '/slots/{slot:[^/]+}/ads/{id:[0-9]+}/redirect' => sub {
    unless ( $ad ) {
         $c->res->status(404);
         $c->res->content_type('application/json');
-        $c->res->body(JSON->new->encode({ error => 'Not Found' }));
+        $c->res->body($self->json->encode({ error => 'Not Found' }));
         return $c->res;
     }
 
