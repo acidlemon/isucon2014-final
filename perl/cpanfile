@@ -1,3 +1,5 @@
 requires "Kossy";
-requires "Redis";
+requires "Redis::Fast";
 requires "Starman";
+requires "Starlet";
+
