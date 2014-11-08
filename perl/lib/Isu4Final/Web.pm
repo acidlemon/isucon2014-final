@@ -4,7 +4,7 @@ use strict;
 use warnings;
 use utf8;
 use Kossy;
-use Redis;
+use Redis::Fast;
 use Fcntl ':flock';
 
 sub ads_dir {
@@ -33,7 +33,9 @@ sub advertiser_id {
 
 my $redis;
 sub redis {
-    $redis ||= Redis->new;
+    $redis ||= Redis::Fast->new(
+        server => 'srv1:6379'
+    );
     return $redis;
 }
 
