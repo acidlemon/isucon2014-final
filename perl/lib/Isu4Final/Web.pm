@@ -100,33 +100,11 @@ sub get_ad {
     return \%ad;
 }
 
-sub decode_user_key {
-    my ( $self, $id ) = @_;
-    my ( $gender, $age ) = split '/', $id;
-    return { gender => $gender eq '0' ? 'female' : $gender eq '1' ? 'male' : undef, age => int($age) };
-}
 
 sub get_log {
     my ( $self, $id ) = @_;
 
     my $result = {};
-#    open my $in, '<', $self->log_path($id) or return {};
-#    flock $in, LOCK_SH;
-#    while ( my $line = <$in> ) {
-#        chomp $line;
-#        my ( $ad_id, $user, $agent ) = split "\t", $line;
-#        $result->{$ad_id} = [] unless $result->{$ad_id};
-#        my $user_attr = $self->decode_user_key($user);
-#        push @{$result->{$ad_id}}, {
-#            ad_id  => $ad_id,
-#            user   => $user,
-#            agent  => $agent,
-#            age    => $user_attr->{age},
-#            gender => $user_attr->{gender},
-#        };
-#    }
-#    close $in;
-
     my @logs = $self->redis->lrange($self->log_key($id), 0, -1);
 
     for my $log (@logs) {
@@ -314,13 +292,6 @@ get '/slots/{slot:[^/]+}/ads/{id:[0-9]+}/redirect' => sub {
         $c->res->body($self->json->encode({ error => 'Not Found' }));
         return $c->res;
     }
-
-#    open my $out , '>>', $self->log_path($ad->{advertiser}) or do {
-#        $c->halt(500);
-#    };
-#    flock $out, LOCK_EX;
-#    print $out join("\t", $ad->{id}, $c->req->cookies->{isuad}, $c->req->env->{'HTTP_USER_AGENT'} . "\n");
-#    close $out;
 
     my $user = $c->req->cookies->{isuad};
     my ($gender, $age) = split '/', $user;
