@@ -9,6 +9,9 @@ use JSON::XS;
 use File::Copy;
 use File::Path;
 use File::Basename qw/dirname/;
+use Net::Address::IP::Local;
+
+my $self_ip = Net::Address::IP::Local->public;
 
 sub advertiser_id {
     my ( $self, $c ) = @_;
@@ -93,7 +96,7 @@ sub get_ad {
     return undef if !%ad;
 
     $ad{impressions} = int($ad{impressions});
-    $ad{asset}       = $c->req->uri_for("/slots/${slot}/ads/${id}/asset")->as_string;
+    $ad{asset}       = "http://".$ad{host}."/slots/${slot}/ads/${id}/asset";
     $ad{counter}     = $c->req->uri_for("/slots/${slot}/ads/${id}/count")->as_string;
     $ad{redirect}    = $c->req->uri_for("/slots/${slot}/ads/${id}/redirect")->as_string;
     $ad{type}        = undef if $ad{type} eq '';
@@ -151,6 +154,7 @@ post '/slots/{slot:[^/]+}/ads' => sub {
         'advertiser'  => $advertiser_id,
         'destination' => $c->req->param('destination'),
         'impressions' => 0,
+        'host'        => $self_ip,
     );
 
     my $asset_path = $self->asset_path($slot, $id);
