@@ -7,6 +7,9 @@ use Kossy;
 use Redis::Fast;
 use JSON::XS;
 use Fcntl ':flock';
+use File::Copy;
+use File::Path;
+use File::Basename qw/dirname/;
 
 sub ads_dir {
     my $self = shift;
@@ -54,6 +57,12 @@ sub ad_key {
 sub asset_key {
     my ( $self, $slot, $id ) = @_;
     return "isu4:asset:${slot}-${id}";
+}
+
+sub asset_path {
+    my ($self, $slot, $id) = @_;
+
+    return "/var/tmp/isu4videos/slots/${slot}/ads/${id}/asset";
 }
 
 sub advertiser_key {
@@ -170,12 +179,12 @@ post '/slots/{slot:[^/]+}/ads' => sub {
         'impressions' => 0,
     );
 
-    open my $in, $asset->path or do {
+    my $asset_path = $self->asset_path($slot, $id);
+    mkpath dirname($asset_path);
+    move $asset->path, $asset_path or do {
         $c->halt(500);
     };
-    my $content = do { local $/; <$in> };
-    close $in;
-    $self->redis->set($self->asset_key($slot, $id), $content);
+
     $self->redis->rpush($self->slot_key($slot), $id);
     $self->redis->sadd($self->advertiser_key($advertiser_id), $key);
 
