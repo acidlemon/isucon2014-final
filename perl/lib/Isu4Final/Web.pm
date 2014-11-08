@@ -164,9 +164,11 @@ post '/slots/{slot:[^/]+}/ads' => sub {
         'host'        => $self->self_ip,
     );
 
+    warn "X-FILE=".$c->req->header("X-FILE");
     my $asset_path = $self->asset_path($slot, $id);
     mkpath dirname($asset_path);
     move $c->req->header("X-FILE"), $asset_path or do {
+        warn "move failed: ".$!;
         $c->halt(500);
     };
     chmod 0644, $asset_path;
