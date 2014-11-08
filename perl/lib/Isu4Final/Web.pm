@@ -160,7 +160,7 @@ post '/slots/{slot:[^/]+}/ads' => sub {
         'advertiser'  => $advertiser_id,
         'destination' => $c->req->param('destination'),
         'impressions' => 0,
-        'host'        => $self_ip,
+        'host'        => $self->self_ip,
     );
 
     my $asset_path = $self->asset_path($slot, $id);
