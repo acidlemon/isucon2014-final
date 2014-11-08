@@ -102,7 +102,9 @@ sub get_ad {
     return undef if !%ad;
 
     $ad{impressions} = int($ad{impressions});
-    $ad{asset}       = "http://".$ad{host}."/slots/${slot}/ads/${id}/asset";
+    $ad{asset}       = ($c->req->remote_host || "") =~ /^10\./
+        ? "http://".$ad{host}."/slots/${slot}/ads/${id}/asset"
+        : $c->req->uri_for("/slots/${slot}/ads/${id}/asset")->as_string;
     $ad{counter}     = $c->req->uri_for("/slots/${slot}/ads/${id}/count")->as_string;
     $ad{redirect}    = $c->req->uri_for("/slots/${slot}/ads/${id}/redirect")->as_string;
     $ad{type}        = undef if $ad{type} eq '';
