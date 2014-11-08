@@ -3,4 +3,3 @@ requires "Redis::Fast";
 requires "Starman";
 requires "Starlet";
 requires "JSON::XS";
-requires "Net::Address::IP::Local";

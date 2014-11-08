@@ -9,9 +9,15 @@ use JSON::XS;
 use File::Copy;
 use File::Path;
 use File::Basename qw/dirname/;
-use Net::Address::IP::Local;
 
-my $self_ip = Net::Address::IP::Local->public;
+my $self_ip;
+sub self_ip {
+    if (!$self_ip) {
+        ($self_ip) = `ifconfig eth1 | grep "inet addr"` =~ /addr:(\S+)/;
+    }
+
+    return $self_ip;
+}
 
 sub advertiser_id {
     my ( $self, $c ) = @_;
