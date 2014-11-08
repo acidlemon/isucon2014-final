@@ -5,7 +5,11 @@ use warnings;
 use utf8;
 use Kossy;
 use Redis::Fast;
+use JSON::XS;
 use Fcntl ':flock';
+use File::Copy;
+use File::Path;
+use File::Basename qw/dirname/;
 
 sub ads_dir {
     my $self = shift;
@@ -39,6 +43,12 @@ sub redis {
     return $redis;
 }
 
+my $json;
+sub json {
+    $json ||= JSON::XS->new;
+    return $json;
+}
+
 sub ad_key {
     my ( $self, $slot, $id ) = @_;
     return "isu4:ad:${slot}-${id}";
@@ -47,6 +57,12 @@ sub ad_key {
 sub asset_key {
     my ( $self, $slot, $id ) = @_;
     return "isu4:asset:${slot}-${id}";
+}
+
+sub asset_path {
+    my ($self, $slot, $id) = @_;
+
+    return "/var/tmp/isu4videos/slots/${slot}/ads/${id}/asset";
 }
 
 sub advertiser_key {
@@ -163,12 +179,13 @@ post '/slots/{slot:[^/]+}/ads' => sub {
         'impressions' => 0,
     );
 
-    open my $in, $asset->path or do {
+    my $asset_path = $self->asset_path($slot, $id);
+    mkpath dirname($asset_path);
+    move $asset->path, $asset_path or do {
         $c->halt(500);
     };
-    my $content = do { local $/; <$in> };
-    close $in;
-    $self->redis->set($self->asset_key($slot, $id), $content);
+    chmod 0644, $asset_path;
+
     $self->redis->rpush($self->slot_key($slot), $id);
     $self->redis->sadd($self->advertiser_key($advertiser_id), $key);
 
@@ -186,7 +203,7 @@ get '/slots/{slot:[^/]+}/ad' => sub {
     else {
         $c->res->status(404);
         $c->res->content_type('application/json');
-        $c->res->body(JSON->new->encode({ error => 'Not Found' }));
+        $c->res->body($self->json->encode({ error => 'Not Found' }));
         return $c->res;
     }
 };
@@ -196,7 +213,7 @@ get '/slots/{slot:[^/]+}/ads/{id:[0-9]+}' => sub {
 
     my $ad = $self->get_ad($c, $c->args->{slot}, $c->args->{id});
     if ( $ad ) {
-        my $body = JSON->new->encode($ad);
+        my $body = $self->json->encode($ad);
         $c->res->status(200);
         $c->res->header('Content-Length' => length($body));
         $c->res->content_type('application/json');
@@ -205,7 +222,7 @@ get '/slots/{slot:[^/]+}/ads/{id:[0-9]+}' => sub {
     else {
         $c->res->status(404);
         $c->res->content_type('application/json');
-        $c->res->body(JSON->new->encode({ error => 'Not Found' }));
+        $c->res->body($self->json->encode({ error => 'Not Found' }));
     }
     return $c->res;
 };
@@ -261,7 +278,7 @@ get '/slots/{slot:[^/]+}/ads/{id:[0-9]+}/asset' => sub {
     else {
         $c->res->status(404);
         $c->res->content_type('application/json');
-        $c->res->body(JSON->new->encode({ error => 'Not Found' }));
+        $c->res->body($self->json->encode({ error => 'Not Found' }));
         return $c->res;
     }
 };
@@ -277,7 +294,7 @@ post '/slots/{slot:[^/]+}/ads/{id:[0-9]+}/count' => sub {
     unless ( $self->redis->exists($key) ) {
         $c->res->status(404);
         $c->res->content_type('application/json');
-        $c->res->body(JSON->new->encode({ error => 'Not Found' }));
+        $c->res->body($self->json->encode({ error => 'Not Found' }));
         return $c->res;
     }
 
@@ -298,7 +315,7 @@ get '/slots/{slot:[^/]+}/ads/{id:[0-9]+}/redirect' => sub {
    unless ( $ad ) {
         $c->res->status(404);
         $c->res->content_type('application/json');
-        $c->res->body(JSON->new->encode({ error => 'Not Found' }));
+        $c->res->body($self->json->encode({ error => 'Not Found' }));
         return $c->res;
     }
 

@@ -2,4 +2,4 @@ requires "Kossy";
 requires "Redis::Fast";
 requires "Starman";
 requires "Starlet";
-
+requires "JSON::XS";
