@@ -147,8 +147,7 @@ post '/slots/{slot:[^/]+}/ads' => sub {
         $c->halt(400);
     }
 
-    my $slot  = $c->args->{slot};
-    my $asset = $c->req->uploads->{'asset'};
+    my $slot = $c->args->{slot};
 
     my $id  = $self->next_ad_id;
     my $key = $self->ad_key($slot, $id);
@@ -158,7 +157,7 @@ post '/slots/{slot:[^/]+}/ads' => sub {
         'slot'        => $slot,
         'id'          => $id,
         'title'       => $c->req->param('title'),
-        'type'        => $c->req->param('type') || $asset->content_type || 'video/mp4',
+        'type'        => $c->req->param('type') || 'video/mp4',
         'advertiser'  => $advertiser_id,
         'destination' => $c->req->param('destination'),
         'impressions' => 0,
@@ -167,7 +166,7 @@ post '/slots/{slot:[^/]+}/ads' => sub {
 
     my $asset_path = $self->asset_path($slot, $id);
     mkpath dirname($asset_path);
-    move $asset->path, $asset_path or do {
+    move $c->req->header("X-FILE"), $asset_path or do {
         $c->halt(500);
     };
     chmod 0644, $asset_path;
